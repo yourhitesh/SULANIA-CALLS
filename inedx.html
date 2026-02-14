@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SULANIA'S CALLS ONLY - Elite</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { 
+            --gold: linear-gradient(135deg, #D4AF37 0%, #F1D27B 50%, #B8860B 100%);
+            --gold-solid: #D4AF37;
+            --black: #050505; 
+            --gray: rgba(20, 20, 20, 0.85); 
+            --glass: rgba(255, 255, 255, 0.03);
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Poppins', sans-serif; 
+            background: var(--black);
+            color: white; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Animated Background Canvas */
+        #bg-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+        }
+
+        /* Container Styling */
+        .auth-container {
+            text-align: center; background: var(--gray); padding: 50px; 
+            border-radius: 30px; border: 1px solid rgba(239, 228, 6, 0.2); 
+            width: 350px; backdrop-filter: blur(20px);
+            box-shadow: 0 20px 50px rgba(1, 254, 233, 0.8);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        #mode-selection { display: none; }
+        #main-content { display: none; width: 100%; height: 100vh; flex-direction: column; }
+
+        /* Interface Layout */
+        header { padding: 15px; text-align: center; background: rgba(0,0,0,0.5); border-bottom: 1px solid rgba(212, 175, 55, 0.2); backdrop-filter: blur(10px); }
+        h1 { background: var(--gold); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; font-size: 1.8rem; letter-spacing: 5px; font-weight: 800; }
+
+        .main-layout { display: flex; flex: 1; padding: 25px; gap: 25px; overflow: hidden; }
+        .video-section { flex: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .video-wrapper { position: relative; border-radius: 20px; overflow: hidden; border: 1px solid rgba(212, 175, 55, 0.3); background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .chat-section { flex: 1; background: var(--glass); border-radius: 25px; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(20px); }
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        
+        /* Message Bubbles */
+        .message { padding: 12px 18px; border-radius: 18px; max-width: 80%; font-size: 0.95em; animation: msgPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .sent { background: var(--gold); color: black; align-self: flex-end; border-bottom-right-radius: 2px; font-weight: 500; }
+        .received { background: rgba(255,255,255,0.1); color: white; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid rgba(255,255,255,0.1); }
+
+        /* UI Buttons */
+        .send-btn { background: var(--gold); border: none; padding: 12px 25px; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(212,175,55,0.3); }
+        .send-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        
+        .footer-controls { padding: 15px; display: flex; justify-content: center; gap: 15px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); }
+        input { padding: 14px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: white; outline: none; }
+        
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="login-screen" class="auth-container">
+        <h2 style="color: #D4AF37;">SECURE ACCESS</h2>
+        <input type="password" id="pass-input" placeholder="Enter PIN" style="width: 80%; text-align: center; margin-bottom: 20px;">
+        <br>
+        <button class="send-btn" onclick="checkPassword()" style="width: 90%;">Authenticate</button>
+    </div>
+
+    <div id="mode-selection" class="auth-container">
+        <h2 style="color: #D4AF37;">WELCOME</h2>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="send-btn" onclick="setMode('chat')">Secure Chat</button>
+            <button class="send-btn" onclick="setMode('video')">Video Call</button>
+            <button class="send-btn" onclick="setMode('both')">Full Access</button>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <header>
+            <h1>SULANIA'S CALLS ONLY</h1>
+            <div style="font-size: 0.7em;">Node ID: <span id="my-id" style="color:var(--gold-solid);">...</span></div>
+        </header>
+
+        <div class="main-layout">
+            <div id="v-sec" class="video-section">
+                <div class="video-wrapper"><video id="local-video" autoplay muted></video></div>
+                <div class="video-wrapper"><video id="remote-video" autoplay></video></div>
+            </div>
+            <div id="c-sec" class="chat-section">
+                <div id="chat-box"></div>
+                <div class="input-group" style="padding: 15px; display: flex; gap: 10px;">
+                    <button class="send-btn" style="padding: 10px; border-radius: 50%; width: 42px;" onclick="document.getElementById('file-input').click()">📎</button>
+                    <input type="file" id="file-input" class="hidden" onchange="sendFile(this)">
+                    <input type="text" id="msg-input" placeholder="Message..." style="flex:1;">
+                    <button class="send-btn" onclick="sendMsg()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-controls">
+            <input type="text" id="remote-id" placeholder="Partner Node ID">
+            <button class="send-btn" onclick="startConnection()">Link</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. ANIMATED BACKGROUND LOGIC ---
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function initBg() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particles = [];
+            for (let i = 0; i < 80; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5
+                });
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "rgba(212, 175, 55, 0.5)";
+            ctx.strokeStyle = "rgba(212, 175, 55, 0.1)";
+
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+                    if (dist < 150) {
+                        ctx.lineWidth = 1 - dist / 150;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', initBg);
+        initBg(); animate();
+
+        // --- 2. PEER LOGIC ---
+        const CORRECT_PASS = "Hitesh77";
+        let peer, localStream, currentConn, selectedMode;
+
+        function checkPassword() {
+            if (document.getElementById('pass-input').value === CORRECT_PASS) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('mode-selection').style.display = 'block';
+            } else { alert("WRONG PIN"); }
+        }
+
+        function setMode(mode) {
+            selectedMode = mode;
+            document.getElementById('mode-selection').style.display = 'none';
+            document.getElementById('main-content').style.display = 'flex';
+            if(mode === 'chat') document.getElementById('v-sec').classList.add('hidden');
+            if(mode === 'video') document.getElementById('c-sec').classList.add('hidden');
+            initApp();
+        }
+
+        function initApp() {
+            peer = new Peer();
+            peer.on('open', id => document.getElementById('my-id').innerText = id);
+            if (selectedMode !== 'chat') {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    .then(s => { localStream = s; document.getElementById('local-video').srcObject = s; });
+            }
+            peer.on('call', call => {
+                call.answer(localStream);
+                call.on('stream', s => { document.getElementById('remote-video').srcObject = s; alert("CONNECTED"); });
+            });
+            peer.on('connection', conn => { currentConn = conn; setupChat(); });
+        }
+
+        function startConnection() {
+            const rId = document.getElementById('remote-id').value;
+            if(!rId) return;
+            if(selectedMode !== 'chat') {
+                const call = peer.call(rId, localStream);
+                call.on('stream', s => document.getElementById('remote-video').srcObject = s);
+            }
+            currentConn = peer.connect(rId);
+            currentConn.on('open', setupChat);
+        }
+
+        function setupChat() {
+            currentConn.on('data', data => {
+                if (data.file) {
+                    const blob = new Blob([data.file], { type: data.fileType });
+                    appendFileMessage(data.fileName, URL.createObjectURL(blob), 'received');
+                } else { appendMessage(data, 'received'); }
+            });
+        }
+
+        function sendMsg() {
+            const msg = document.getElementById('msg-input').value;
+            if(!msg || !currentConn) return;
+            currentConn.send(msg);
+            appendMessage(msg, 'sent');
+            document.getElementById('msg-input').value = "";
+        }
+
+        function appendMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerText = text;
+            document.getElementById('chat-box').appendChild(div);
+            document.getElementById('chat-box').scrollTop = 10000;
+        }
+
+        function sendFile(input) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentConn.send({ file: e.target.result, fileName: file.name, fileType: file.type });
+                appendFileMessage(file.name, URL.createObjectURL(file), 'sent');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function appendFileMessage(name, url, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = `📄 ${name} <a href="${url}" download="${name}" style="color:inherit; font-weight:bold; display:block;">Save</a>`;
+            document.getElementById('chat-box').appendChild(div);
+        }
+    </script>
+</body>
+</html>
